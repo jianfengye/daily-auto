@@ -75,6 +75,8 @@ var flowCmd = &cobra.Command{
 			if err != nil {
 				log.Panic(err)
 			}
+
+			log.Println("获取了百度数据条数：", len(ret))
 			items = append(items, ret...)
 
 			log.Println("结束获取百度数据")
@@ -88,6 +90,8 @@ var flowCmd = &cobra.Command{
 			if err != nil {
 				log.Panic(err)
 			}
+
+			log.Println("获取了知乎数据条数：", len(ret))
 			items = append(items, ret...)
 			log.Println("结束获取知乎数据")
 		}
@@ -242,9 +246,9 @@ func zhihuSearcher(keyword string) (items []Item, err error) {
 		title = strings.ReplaceAll(title, "</em>", "")
 
 		if strings.HasPrefix(link, "//") {
-			link = "http:" + link
+			link = "https:" + link
 		} else if strings.HasPrefix(link, "/") {
-			link = "http://www.zhihu.com" + link
+			link = "https://www.zhihu.com" + link
 		}
 
 		items = append(items, Item{
