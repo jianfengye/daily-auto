@@ -55,7 +55,7 @@ var flowCmd = &cobra.Command{
 		{
 			prompt := &survey.MultiSelect{
 				Message: "请选择搜索的网站：",
-				Options: []string{"baidu", "zhihu"},
+				Options: []string{"baidu", "zhihu","wechat"},
 			}
 			err := survey.AskOne(prompt, &sites)
 			if err != nil {
@@ -94,6 +94,20 @@ var flowCmd = &cobra.Command{
 			log.Println("获取了知乎数据条数：", len(ret))
 			items = append(items, ret...)
 			log.Println("结束获取知乎数据")
+		}
+
+		if sitesColl.Contains("wechat") {
+			// 获取知乎数据
+			log.Println("开始获取微信数据")
+
+			ret, err := wechatSearcher(keyword)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			log.Println("获取了微信数据条数：", len(ret))
+			items = append(items, ret...)
+			log.Println("结束微信知乎数据")
 		}
 
 		// 网站搜索结束
@@ -218,13 +232,13 @@ func outputDaily(keyword string, selectItems []Item, author string) {
 今日话题： {{.KeyWord}}
 
 {{range .Items}}
-{{.Title}} {{.Link}}
+{{.Title}} {{.Link|noescape}}
 {{end}}
 
 编辑：{{.Author}}
 汇总地址：http://www.huoding.com/#/
 			`
-	t, err := template.New("daily").Parse(tmpl)
+	t, err := template.New("daily").Funcs(fn).Parse(tmpl)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -323,3 +337,56 @@ func baiduSearcher(keyword string) (items []Item, err error) {
 	return items, err
 }
 
+// 搜索sougouweixin, 获取第一页
+func wechatSearcher(keyword string) (items []Item, err error) {
+	c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
+	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299"
+	c1 := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
+	c1.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299"
+
+	c.OnHTML("h3", func(element *colly.HTMLElement) {
+		//link := element.ChildAttr("a", "href")
+		title := element.ChildText("a")
+		title = strings.ReplaceAll(title, "<em>", "")
+		title = strings.ReplaceAll(title, "</em>", "")
+		title = strings.ReplaceAll(title, "<!--red_beg-->", "")
+		title = strings.ReplaceAll(title, "<!--red_end-->", "")
+
+		// 再去sogou主搜索查询
+		err := c1.Visit(fmt.Sprintf("https://www.sogou.com/web?query=%s", url.QueryEscape(title)))
+		if err != nil {
+			log.Panic(err)
+		}
+	})
+
+	c1.OnHTML(".tit-ico", func(element *colly.HTMLElement) {
+		link := element.Attr("href")
+		title := element.DOM.Parent().Prev().Text()
+		title = strings.ReplaceAll(title, "\n", "")
+		title = strings.ReplaceAll(title, "<em>", "")
+		title = strings.ReplaceAll(title, "</em>", "")
+		title = strings.ReplaceAll(title, "<!--red_beg-->", "")
+		title = strings.ReplaceAll(title, "<!--red_end-->", "")
+
+		items = append(items, Item{
+			Link:   link,
+			Title:  title,
+			Source: "wechat",
+		})
+	})
+
+	err = c.Visit(fmt.Sprintf("https://weixin.sogou.com/weixin?query=%s&type=2&ie=utf8", url.QueryEscape(keyword)))
+	if err != nil {
+		log.Panic(err)
+	}
+	return items, err
+}
+
+
+func noescape(str string) template.HTML {
+	return template.HTML(str)
+}
+
+var fn = template.FuncMap{
+	"noescape": noescape,
+}
