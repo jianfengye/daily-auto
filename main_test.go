@@ -51,8 +51,8 @@ func Test_zhihuSearcher(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:      "正常测试知乎",
-			args:      args{
+			name: "正常测试知乎",
+			args: args{
 				"golang",
 			},
 			wantItems: nil,
@@ -72,6 +72,38 @@ func Test_zhihuSearcher(t *testing.T) {
 		})
 	}
 }
+func Test_csdnSearcher(t *testing.T) {
+	type args struct {
+		keyword string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantItems []Item
+		wantErr   bool
+	}{
+		{
+			name: "正常测试知乎",
+			args: args{
+				"golang",
+			},
+			wantItems: nil,
+			wantErr:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotItems, err := csdnSearcher(tt.args.keyword)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("csdnSearcher() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(gotItems) < 3 {
+				t.Errorf("csdnSearcher() len = %v, want > %v", len(gotItems), 3)
+			}
+		})
+	}
+}
 
 func Test_weichatSearcher(t *testing.T) {
 	type args struct {
@@ -84,8 +116,8 @@ func Test_weichatSearcher(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:      "正常测试微信",
-			args:      args{
+			name: "正常测试微信",
+			args: args{
 				"golang",
 			},
 			wantItems: nil,
@@ -99,7 +131,7 @@ func Test_weichatSearcher(t *testing.T) {
 				t.Errorf("wechatSearcher() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if len(gotItems) > 3 {
+			if len(gotItems) < 3 {
 				t.Errorf("wechatSearcher() len = %v, want > %v", len(gotItems), 3)
 			}
 		})
@@ -107,7 +139,6 @@ func Test_weichatSearcher(t *testing.T) {
 }
 
 func Test_UrlOutput(t *testing.T) {
-
 
 	type Item struct {
 		Link   string // 链接
@@ -120,14 +151,14 @@ func Test_UrlOutput(t *testing.T) {
 		Author  string
 	}{
 		KeyWord: "你好",
-		Items:   []Item{
+		Items: []Item{
 			{
 				Link:   "http://baidu.com?a=1&b=2",
 				Title:  "标题",
 				Source: "",
 			},
 		},
-		Author:  "轩脉刃",
+		Author: "轩脉刃",
 	}
 
 	tmpl := `
@@ -153,4 +184,3 @@ func Test_UrlOutput(t *testing.T) {
 	panic(out.String())
 
 }
-

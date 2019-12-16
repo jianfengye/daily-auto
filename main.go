@@ -25,15 +25,14 @@ func main() {
 	}
 }
 
-
 type Item struct {
-	Link string // 链接
-	Title string // 标题
+	Link   string // 链接
+	Title  string // 标题
 	Source string // 来源
 }
 
 var flowCmd = &cobra.Command{
-	Use: "flow",
+	Use:   "flow",
 	Short: "生成工具",
 	Run: func(cmd *cobra.Command, args []string) {
 		var keyword string
@@ -50,12 +49,11 @@ var flowCmd = &cobra.Command{
 			}
 		}
 
-
 		// 选择多个网站
 		{
 			prompt := &survey.MultiSelect{
 				Message: "请选择搜索的网站：",
-				Options: []string{"baidu", "zhihu","wechat"},
+				Options: []string{"baidu", "zhihu", "wechat", "csdn"},
 			}
 			err := survey.AskOne(prompt, &sites)
 			if err != nil {
@@ -95,6 +93,19 @@ var flowCmd = &cobra.Command{
 			items = append(items, ret...)
 			log.Println("结束获取知乎数据")
 		}
+		if sitesColl.Contains("csdn") {
+			// 获取知乎数据
+			log.Println("开始获取知乎数据")
+
+			ret, err := csdnSearcher(keyword)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			log.Println("获取了csdn数据条数：", len(ret))
+			items = append(items, ret...)
+			log.Println("结束获取csdn数据")
+		}
 
 		if sitesColl.Contains("wechat") {
 			// 获取知乎数据
@@ -118,13 +129,13 @@ var flowCmd = &cobra.Command{
 			fmt.Println(item.Title, "   ", item.Link)
 			opts = append(opts, item.Title+" "+item.Link)
 		}
-START_SELECT:
+	START_SELECT:
 		// 提示进行选择
 		selected := []string{}
 		{
 			prompt := &survey.MultiSelect{
-				Message: "请选择几条作为今日的知识点：",
-				Options: opts,
+				Message:  "请选择几条作为今日的知识点：",
+				Options:  opts,
 				PageSize: 20,
 			}
 			err := survey.AskOne(prompt, &selected)
@@ -155,7 +166,6 @@ START_SELECT:
 			}
 			selectItems = append(selectItems, a)
 		}
-
 
 		ok = false
 		{
@@ -196,8 +206,8 @@ START_SELECT:
 
 func outputSqlContent(selectItems []Item) {
 	type SqlItem struct {
-		Title string `json:"title"`
-		Link string `json:"link"`
+		Title   string `json:"title"`
+		Link    string `json:"link"`
 		Comment string `json:"comment"`
 	}
 	rets := make([]SqlItem, 0)
@@ -278,6 +288,28 @@ func zhihuSearcher(keyword string) (items []Item, err error) {
 	return items, err
 }
 
+func csdnSearcher(keyword string) (items []Item, err error) {
+	c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
+	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299"
+	c.OnHTML(".limit_width", func(element *colly.HTMLElement) {
+		link := element.ChildAttr("a", "href")
+		title := element.ChildText("a")
+		title = strings.ReplaceAll(title, "<em>", "")
+		title = strings.ReplaceAll(title, "</em>", "")
+
+		items = append(items, Item{
+			Link:   link,
+			Title:  title,
+			Source: "csdn",
+		})
+	})
+	err = c.Visit(fmt.Sprintf("https://so.csdn.net/so/search/s.do?q=%s", url.QueryEscape(keyword)))
+	if err != nil {
+		log.Panic(err)
+	}
+	return items, err
+}
+
 // 搜索百度, 获取第一页
 func baiduSearcher(keyword string) (items []Item, err error) {
 	c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
@@ -313,8 +345,8 @@ func baiduSearcher(keyword string) (items []Item, err error) {
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			if  resp.StatusCode == http.StatusFound ||
-				resp.StatusCode == http.StatusMovedPermanently{
+			if resp.StatusCode == http.StatusFound ||
+				resp.StatusCode == http.StatusMovedPermanently {
 				realUrl, err = resp.Location()
 				if err != nil {
 					log.Panic(err)
@@ -381,7 +413,6 @@ func wechatSearcher(keyword string) (items []Item, err error) {
 	}
 	return items, err
 }
-
 
 func noescape(str string) template.HTML {
 	return template.HTML(str)
