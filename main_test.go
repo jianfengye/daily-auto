@@ -83,7 +83,7 @@ func Test_csdnSearcher(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "正常测试知乎",
+			name: "正常测试csdn",
 			args: args{
 				"golang",
 			},

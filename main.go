@@ -71,7 +71,7 @@ var flowCmd = &cobra.Command{
 
 			ret, err := baiduSearcher(keyword)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 
 			log.Println("获取了百度数据条数：", len(ret))
@@ -86,7 +86,7 @@ var flowCmd = &cobra.Command{
 
 			ret, err := zhihuSearcher(keyword)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 
 			log.Println("获取了知乎数据条数：", len(ret))
@@ -99,7 +99,7 @@ var flowCmd = &cobra.Command{
 
 			ret, err := csdnSearcher(keyword)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 
 			log.Println("获取了csdn数据条数：", len(ret))
@@ -113,7 +113,7 @@ var flowCmd = &cobra.Command{
 
 			ret, err := wechatSearcher(keyword)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 
 			log.Println("获取了微信数据条数：", len(ret))
@@ -136,7 +136,7 @@ var flowCmd = &cobra.Command{
 			prompt := &survey.MultiSelect{
 				Message:  "请选择几条作为今日的知识点：",
 				Options:  opts,
-				PageSize: 20,
+				PageSize: 100,
 			}
 			err := survey.AskOne(prompt, &selected)
 			if err != nil {
@@ -283,7 +283,7 @@ func zhihuSearcher(keyword string) (items []Item, err error) {
 	})
 	err = c.Visit(fmt.Sprintf("https://www.zhihu.com/search?type=content&q=%s", url.QueryEscape(keyword)))
 	if err != nil {
-		log.Panic(err)
+		return items, err
 	}
 	return items, err
 }
@@ -303,9 +303,20 @@ func csdnSearcher(keyword string) (items []Item, err error) {
 			Source: "csdn",
 		})
 	})
+	c.OnRequest(func(r *colly.Request) {
+		//r.Headers.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+		//r.Headers.Set("accept-encoding", "gzip, deflate, br")
+		//r.Headers.Set("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7")
+		//r.Headers.Set("cache-control", "no-cache")
+		r.Headers.Set("Accept-Encoding", "identity")
+		r.Headers.Set("Connection", "close")
+	})
+	c.OnResponse(func(r *colly.Response) {
+		r.Save("/tmp/response")
+	})
 	err = c.Visit(fmt.Sprintf("https://so.csdn.net/so/search/s.do?q=%s", url.QueryEscape(keyword)))
 	if err != nil {
-		log.Panic(err)
+		return items, err
 	}
 	return items, err
 }
@@ -349,10 +360,10 @@ func baiduSearcher(keyword string) (items []Item, err error) {
 				resp.StatusCode == http.StatusMovedPermanently {
 				realUrl, err = resp.Location()
 				if err != nil {
-					log.Panic(err)
+					log.Println(err)
 				}
 			} else {
-				log.Panic(err)
+				log.Println(err)
 			}
 		}
 
@@ -364,7 +375,7 @@ func baiduSearcher(keyword string) (items []Item, err error) {
 	})
 	err = c.Visit(fmt.Sprintf("http://www.baidu.com/s?wd=%s", url.QueryEscape(keyword)))
 	if err != nil {
-		return nil, err
+		return items, err
 	}
 	return items, err
 }
@@ -387,7 +398,7 @@ func wechatSearcher(keyword string) (items []Item, err error) {
 		// 再去sogou主搜索查询
 		err := c1.Visit(fmt.Sprintf("https://www.sogou.com/web?query=%s", url.QueryEscape(title)))
 		if err != nil {
-			log.Panic(err)
+			return
 		}
 	})
 
@@ -409,7 +420,7 @@ func wechatSearcher(keyword string) (items []Item, err error) {
 
 	err = c.Visit(fmt.Sprintf("https://weixin.sogou.com/weixin?query=%s&type=2&ie=utf8", url.QueryEscape(keyword)))
 	if err != nil {
-		log.Panic(err)
+		return items, err
 	}
 	return items, err
 }
