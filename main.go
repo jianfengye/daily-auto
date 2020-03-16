@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/gocolly/colly"
-	"github.com/gocolly/colly/debug"
-	"github.com/jianfengye/collection"
-	"github.com/spf13/cobra"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/debug"
+	"github.com/jianfengye/collection"
+	"github.com/spf13/cobra"
 )
 
 func main() {
@@ -53,7 +54,7 @@ var flowCmd = &cobra.Command{
 		{
 			prompt := &survey.MultiSelect{
 				Message: "请选择搜索的网站：",
-				Options: []string{"baidu", "zhihu", "wechat", "csdn"},
+				Options: []string{"baidu", "zhihu", "wechat", "csdn", "cnblog", "custom"},
 			}
 			err := survey.AskOne(prompt, &sites)
 			if err != nil {
@@ -95,16 +96,32 @@ var flowCmd = &cobra.Command{
 		}
 		if sitesColl.Contains("csdn") {
 			// 获取知乎数据
-			log.Println("开始获取知乎数据")
+			log.Println("开始获取csdn数据")
 
 			ret, err := csdnSearcher(keyword)
 			if err != nil {
 				log.Println(err)
 			}
+			// 只获取10条
+			t := ret[0:10]
 
 			log.Println("获取了csdn数据条数：", len(ret))
-			items = append(items, ret...)
+			items = append(items, t...)
 			log.Println("结束获取csdn数据")
+		}
+
+		if sitesColl.Contains("cnblog") {
+			// 获取知乎数据
+			log.Println("开始获取cnblog数据")
+
+			ret, err := cnblogSearcher(keyword)
+			if err != nil {
+				log.Println(err)
+			}
+
+			log.Println("获取了cnblog数据条数：", len(ret))
+			items = append(items, ret...)
+			log.Println("结束获取cnblog数据")
 		}
 
 		if sitesColl.Contains("wechat") {
@@ -119,6 +136,29 @@ var flowCmd = &cobra.Command{
 			log.Println("获取了微信数据条数：", len(ret))
 			items = append(items, ret...)
 			log.Println("结束微信知乎数据")
+		}
+
+		if sitesColl.Contains("custom") {
+			text := ""
+			prompt := &survey.Multiline{
+				Message: "你可以手动输入一些文章的标题和链接[标题;链接]，一行一个，中间用半角封号隔开",
+			}
+			survey.AskOne(prompt, &text)
+
+			if text != "" {
+				lines := strings.Split(text, "\n")
+				for _, line := range lines {
+					ss := strings.SplitN(line, ";", 2)
+					if len(ss) == 2 {
+						it := Item{
+							Link:   ss[1],
+							Title:  ss[0],
+							Source: "custom",
+						}
+						items = append(items, it)
+					}
+				}
+			}
 		}
 
 		// 网站搜索结束
@@ -246,6 +286,7 @@ func outputDaily(keyword string, selectItems []Item, author string) {
 {{end}}
 
 编辑：{{.Author}}
+汇总小程序：搜索“全栈神盾局” 可以查看往期每日话题
 汇总地址：http://www.huoding.com/#/
 			`
 	t, err := template.New("daily").Funcs(fn).Parse(tmpl)
@@ -321,6 +362,40 @@ func csdnSearcher(keyword string) (items []Item, err error) {
 	return items, err
 }
 
+func cnblogSearcher(keyword string) (items []Item, err error) {
+	c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
+	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299"
+	c.OnHTML(".searchItemTitle", func(element *colly.HTMLElement) {
+		link := element.ChildAttr("a", "href")
+		title := element.ChildText("a")
+		title = strings.ReplaceAll(title, "<strong>", "")
+		title = strings.ReplaceAll(title, "</strong>", "")
+
+		items = append(items, Item{
+			Link:   link,
+			Title:  title,
+			Source: "cnblog",
+		})
+	})
+	c.OnRequest(func(r *colly.Request) {
+		//r.Headers.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+		//r.Headers.Set("accept-encoding", "gzip, deflate, br")
+		//r.Headers.Set("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7")
+		//r.Headers.Set("cache-control", "no-cache")
+		r.Headers.Set("cookie", "_ga=GA1.2.134585576.1579195134; __gads=ID=6edef42ac31b7603:T=1579195134:S=ALNI_MZBitAeuX6I9tY2scA2-Ezah2LDsQ; UM_distinctid=1700fd9cc07c83-03397bb01d665f-39617b0f-1aeaa0-1700fd9cc08351; Hm_lvt_ce2db1bd2b24b6516cb2451ef7ff1637=1581341268; _gid=GA1.2.991705243.1582625941; sc_is_visitor_unique=rx11857110.1582625941.80FA5686E37E4F228659E3750CC6093B.1.1.1.1.1.1.1.1.1; __utmc=59123430; __utma=59123430.134585576.1579195134.1582685583.1582694915.2; __utmz=59123430.1582694915.2.2.utmcsr=cnblogs.com|utmccn=(referral)|utmcmd=referral|utmcct=/; __utmt=1; DetectCookieSupport=OK; .AspNetCore.Session=CfDJ8Nf%2BZ6tqUPlNrwu2nvfTJEiEG3QSNH2MXBYABfC88qeJzmqaRbVcjoLB546iGtxkMdes7%2BxcSnxbLCojpUrZ5kz8nV1v2bdVW%2B%2BqfWYwfIyHR2sn8b2UJA0OMX4KN4WTtSNOzG1kFCcIXnMnzwMu%2Bu1qBQxFdQvLd%2B9K4Y3W6nB2; ShitNoRobotCookie=CfDJ8Nf-Z6tqUPlNrwu2nvfTJEiSfuovH4SldpdXZrkoNeUlBTosrljIbFzMnB2MWOCFHaos5lmK-SOaHcZRi0ZecIe-PD8Yd-sxJXSE76EyW3PQwlgzOdvtOSc_W960QWwZVw; __utmb=59123430.7.10.1582694915")
+		r.Headers.Set("Accept-Encoding", "identity")
+		r.Headers.Set("Connection", "close")
+	})
+	c.OnResponse(func(r *colly.Response) {
+		r.Save("/tmp/response")
+	})
+	err = c.Visit(fmt.Sprintf("https://zzk.cnblogs.com/s/blogpost?w=%s", url.QueryEscape(keyword)))
+	if err != nil {
+		return items, err
+	}
+	return items, err
+}
+
 // 搜索百度, 获取第一页
 func baiduSearcher(keyword string) (items []Item, err error) {
 	c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
@@ -373,7 +448,25 @@ func baiduSearcher(keyword string) (items []Item, err error) {
 			Source: "baidu",
 		})
 	})
-	err = c.Visit(fmt.Sprintf("http://www.baidu.com/s?wd=%s", url.QueryEscape(keyword)))
+	c.OnRequest(func(r *colly.Request) {
+		//r.Headers.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+		//r.Headers.Set("accept-encoding", "gzip, deflate, br")
+		//r.Headers.Set("accept-language", "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7")
+		//r.Headers.Set("cache-control", "no-cache")
+		r.Headers.Set("Cookie", "BIDUPSID=561E3AA4D70CC5469689D5FC799ED8A4; PSTM=1579187292; BAIDUID=561E3AA4D70CC5469A789A8439E471FC:FG=1; BD_UPN=123253; MCITY=-315%3A; BDUSS=R3cHo1bkhYaldyZ1FFWjdaeElRdFJ0dHR0ZU1VaXlxWnM4S1lyaExXUkZaNUplRVFBQUFBJCQAAAAAAAAAAAEAAAAiFVUSeWVqaWFuZmVuZ25pY2sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEXaal5F2mpeMm; BDORZ=B490B5EBF6F3CD402E515D22BCDA1598; delPer=0; BD_CK_SAM=1; PSINO=2; BD_HOME=1; H_PS_PSSID=30968_1432_21085_30794_30901_30996_31051_30823_31085; COOKIE_SESSION=7401_0_7_7_7_14_0_1_7_6_0_0_7400_0_6_0_1584347003_0_1584346997%7C9%23491372_21_1583481420%7C9; H_PS_645EC=8d02yQttoTNCqJMYhCikoYcIUfES5pPuFeyDtzzT2e48XrJ7BLJjYZj4JeM")
+		r.Headers.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+
+		r.Headers.Set("Sec-Fetch-Dest", "document")
+		r.Headers.Set("Sec-Fetch-Mode", "navigate")
+		r.Headers.Set("Sec-Fetch-Site", "none")
+		r.Headers.Set("Sec-Fetch-User", "?1")
+		r.Headers.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36")
+
+	})
+	c.OnResponse(func(r *colly.Response) {
+		r.Save("/tmp/response.baidu")
+	})
+	err = c.Visit(fmt.Sprintf("https://www.baidu.com/s?wd=%s", url.QueryEscape(keyword)))
 	if err != nil {
 		return items, err
 	}

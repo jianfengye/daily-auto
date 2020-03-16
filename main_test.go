@@ -33,7 +33,7 @@ func Test_baiduSearcher(t *testing.T) {
 				t.Errorf("baiduSearcher() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if len(gotItems) > 3 {
+			if len(gotItems) < 3 {
 				t.Errorf("baiduSearcher() len = %v, want > %v", len(gotItems), 3)
 			}
 		})
@@ -72,6 +72,39 @@ func Test_zhihuSearcher(t *testing.T) {
 		})
 	}
 }
+func Test_cnblogSearcher(t *testing.T) {
+	type args struct {
+		keyword string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantItems []Item
+		wantErr   bool
+	}{
+		{
+			name: "正常测试cnblog",
+			args: args{
+				"golang",
+			},
+			wantItems: nil,
+			wantErr:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotItems, err := cnblogSearcher(tt.args.keyword)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("cnblogSearcher() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(gotItems) < 3 {
+				t.Errorf("cnblogSearcher() len = %v, want > %v", len(gotItems), 3)
+			}
+		})
+	}
+}
+
 func Test_csdnSearcher(t *testing.T) {
 	type args struct {
 		keyword string
