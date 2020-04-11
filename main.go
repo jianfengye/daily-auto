@@ -151,8 +151,8 @@ var flowCmd = &cobra.Command{
 					ss := strings.SplitN(line, ";", 2)
 					if len(ss) == 2 {
 						it := Item{
-							Link:   ss[1],
-							Title:  ss[0],
+							Link:   ss[1][0:len(ss[1])-1],
+							Title:  ss[0][1:],
 							Source: "custom",
 						}
 						items = append(items, it)
